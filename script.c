@@ -2,37 +2,71 @@
 #include <string.h>
 #include <stdlib.h>
 
-double **create_matrix(int rows, int columns);
+//исправить потом, что он умеет считывать только элекменты из одного символа
 
-int main() {
+typedef struct MATRIX
+{
+  double **input;
+  int gc, mm;
+  char *name;
+} matrix_t;
+
+matrix_t create(int rows, int columns);
+void remove_matrix(matrix_t *A, int sum);
+void print_matrix(matrix_t data);
+
+
+
+int main(int argc, char *argv[]) {
+  printf("%s\n", argv[1]);
   FILE *input;
-  input = fopen("input.txt", "r");
-  double **matrix_inp;
+  input = fopen(argv[1], "r");
   int n, m;
-  char ch;
   fscanf(input, "%d %d", &n, &m);
-  matrix_inp = create_matrix(n + m, 4);
+  matrix_t data = create(n, m);
   for (size_t i = 0; i < n; ++i) {
-    fscanf(input, "%lf %lf %lf", &matrix_inp[i][0], &matrix_inp[i][1], &matrix_inp[i][2]);
+    fscanf(input, "%lf %lf %lf %c", &data.input[i][0], &data.input[i][1], &data.input[i][2], &data.name[i]);
   }
   for (size_t i = n; i < m+n; ++i) {
-    fscanf(input, "%lf %lf %lf %lf", &matrix_inp[i][0], &matrix_inp[i][1], &matrix_inp[i][2], &matrix_inp[i][3]);
+    fscanf(input, "%lf %lf %lf %lf", &data.input[i][0], &data.input[i][1], &data.input[i][2], &data.input[i][3]);
   }
-  for (size_t i = 0; i < n+m; ++i) {
-    printf("%f %f %f %f\n", matrix_inp[i][0], matrix_inp[i][1], matrix_inp[i][2], matrix_inp[i][3]);
-  }
+  // print_matrix(data);
   fclose(input);
+  remove_matrix(&data, n+m);
   return 0;
 }
 
+void print_matrix(matrix_t data) {
+    for (size_t i = 0; i < data.gc+data.mm; ++i) {
+    if (i < data.gc) printf("%f %f %f %c\n", data.input[i][0], data.input[i][1], data.input[i][2], data.name[i]);
+    else printf("%f %f %f %f\n", data.input[i][0], data.input[i][1], data.input[i][2], data.input[i][3]);
+  }
+}
 
-double **create_matrix(int rows, int columns) {
-  double **res;
+matrix_t create(int rows, int columns) {
+  matrix_t res;
   if (rows > 0 && columns > 0) {
-    res = (double **)calloc(rows, sizeof(double *));
-    for (int i = 0; i < rows; i++) {
-      res[i] = (double *)calloc(columns, sizeof(double *));
+    res.input = (double **)calloc(rows + columns, sizeof(double *));
+    for (int i = 0; i < rows + columns; i++) {
+      res.input[i] = (double *)calloc(4, sizeof(double));
     }
+    res.name = (char *)calloc(rows, sizeof(char));
+    res.gc = rows;
+    res.mm = columns;
   } 
   return res;
 }
+
+
+void remove_matrix(matrix_t *A, int sum) {
+  if (A != NULL) {
+      for (int i = 0; i < sum; i++) {
+        free(A->input[i]);
+      }
+      free(A->input);
+  }
+  free(A->name);
+  A->gc = 0;
+  A->mm = 0;
+}
+
