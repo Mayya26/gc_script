@@ -1,27 +1,33 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
+// #include "matrix/s21_matrix.h"
 
 #define TRUE 1
+#define const 0.52917721067
 
 //структура содержит массив координат и зарядов. В отдельном массиве хранятся символы элементов
 //а так же количество точек км/мм
-typedef struct MATRIX
+typedef struct DATA
 {
   double **input;
   int gc, mm;
   char **name;
   char set[20][100];
-} matrix_t;
+} data_t;
 
-matrix_t create(int rows, int columns);
-void remove_matrix(matrix_t *A, int sum);
-void print_matrix(matrix_t data);
-void setting(matrix_t *A);
-void write_conf_file(matrix_t A);
-void write_QM(matrix_t A);
-void write_MM(matrix_t A);
 
+data_t create(int rows, int columns);
+void remove_matrix(data_t *A, int sum);
+void print_matrix(data_t data);
+void setting(data_t *A);
+void write_conf_file(data_t A);
+void write_QM(data_t A);
+void write_MM(data_t A);
+double dist_py(data_t A);
+int factorial(int n);
+size_t triu_indices(int len);
 
 int main(int argc, char *argv[]) {
   printf("%s\n", argv[1]);
@@ -29,7 +35,7 @@ int main(int argc, char *argv[]) {
   input = fopen(argv[1], "r");
   int n, m;
   fscanf(input, "%d %d", &n, &m);
-  matrix_t data = create(n, m);
+  data_t data = create(n, m);
   for (size_t i = 0; i < n; ++i) {
     fscanf(input, "%lf %lf %lf %c%c", &data.input[i][0], &data.input[i][1], &data.input[i][2], &data.name[i][0], &data.name[i][1]);
     if (data.name[i][1] == '\n') data.name[i][1] = 0;
@@ -42,12 +48,13 @@ int main(int argc, char *argv[]) {
   fclose(input);
   write_MM(data);
   write_QM(data);
+  dist_py(data);
   remove_matrix(&data, n+m);
   return 0;
 }
 
 //просто выводит в терминал то что есть в структуре (кроме настроек)
-void print_matrix(matrix_t data) {
+void print_matrix(data_t data) {
     for (size_t i = 0; i < data.gc+data.mm; ++i) {
     if (i < data.gc) printf("%f %f %f %c%c\n", data.input[i][0], data.input[i][1], data.input[i][2], data.name[i][0], data.name[i][1]);
     else printf("%f %f %f %f\n", data.input[i][0], data.input[i][1], data.input[i][2], data.input[i][3]);
@@ -55,8 +62,8 @@ void print_matrix(matrix_t data) {
 }
 
 //выделяем функцию под структуру + вызов функции для настроек
-matrix_t create(int rows, int columns) {
-  matrix_t res;
+data_t create(int rows, int columns) {
+  data_t res;
   if (rows > 0 && columns > 0) {
     res.input = (double **)calloc(rows + columns, sizeof(double *));
     for (size_t i = 0; i < rows + columns; ++i) {
@@ -74,7 +81,7 @@ matrix_t create(int rows, int columns) {
 }
 
 //очистка структуры
-void remove_matrix(matrix_t *A, int sum) {
+void remove_matrix(data_t *A, int sum) {
   if (A != NULL) {
       for (int i = 0; i < sum; i++) {
         free(A->input[i]);
@@ -89,7 +96,7 @@ void remove_matrix(matrix_t *A, int sum) {
 
 
 //запись из файла настроек в структуру
-void setting(matrix_t *A) {
+void setting(data_t *A) {
   FILE *input;
   input = fopen("settings.txt", "r");
   size_t i = 0, k = 0;
@@ -115,7 +122,7 @@ void setting(matrix_t *A) {
 }
 
 //суммирует все заряды
-double sum_charges(matrix_t A) {
+double sum_charges(data_t A) {
   double result = 0;
   for (size_t i = A.gc; i < A.gc + A.mm; ++i) {
     result += A.input[i][3];
@@ -124,7 +131,8 @@ double sum_charges(matrix_t A) {
 }
 
 //запись в файл настроек. (пока не понятно а нужно ли оно вообще)
-void write_conf_file(matrix_t A) {
+//вероятно просто будет скрипт, который будет всё запускать. Или баш или через make сделаю
+void write_conf_file(data_t A) {
   FILE *out;
   out = fopen("outQMFile.txt", "w");
   size_t k;
@@ -139,7 +147,7 @@ void write_conf_file(matrix_t A) {
 }
 
 //тут это запись в отдельный файл с КМ и символами элементов (формат как в qmmm.xyz)
-void write_QM(matrix_t A) {
+void write_QM(data_t A) {
   FILE *out;
   fopen("qm_out.xyz", "w");
   fprintf(out, "%d\n\n", A.gc);
@@ -152,7 +160,7 @@ void write_QM(matrix_t A) {
 }
 
 //тут запись в отдельный файл с ММ и зарядами. формат как у файла point_charges)
-void write_MM(matrix_t A) {
+void write_MM(data_t A) {
   FILE *out;
   fopen("mm_out.txt", "w");
   fprintf(out, "%d\n\n", A.mm);
@@ -162,4 +170,63 @@ void write_MM(matrix_t A) {
   fclose(out);
 }
 
-//
+//кусок с расчётами
+
+//расстояние между двумя точками
+double distance(data_t A, int i, int j) {
+  double result;
+  // printf("%lf\n", pow((A.input[j][0] - A.input[i][0]), 2));
+  result = pow((A.input[i][0] - A.input[j][0]), 2);
+  result += pow((A.input[i][1] - A.input[j][1]), 2);
+  result += pow((A.input[i][2] - A.input[j][2]), 2);
+  result = sqrt(result) / const;
+  return result;
+}
+
+//тут матричные вычисления. Будет матрица mm*mm. Будет больно оптимизировать
+double dist_py(data_t A) {
+  double **result;
+  result = (double **)malloc(A.mm * sizeof(double *));
+  for (size_t i = 0; i < A.mm; i++) {
+    result[i] = (double *)malloc(A.mm * sizeof(double ));
+  }
+  for (size_t i = 0; i < A.mm; ++i) {
+    result[i][i] = 0;
+    for (size_t j = 0; j < A.mm; ++j) {
+      if (!(result[i][j] > 0)) result[i][j] = result[j][i] = distance(A, i + A.gc, A.gc + j);
+    }
+  }
+  return **result;
+}
+
+//индексы верхней треугольной матрицы
+size_t triu_indices(int len) {
+  size_t **result;
+  int f = factorial(len);
+  result = (size_t **)malloc(2 * sizeof(size_t *));
+  result[0] = (size_t *)malloc(f * sizeof(size_t ));
+  result[1] = (size_t *)malloc(f * sizeof(size_t ));
+  int k = 0;
+  for (size_t i = 0; i < len - 1; ++i) {
+    for (size_t t = i + 1; t < len; ++t) {
+      result[0][k] = i;
+      result[1][k] = t;
+      k++;
+    }
+  }
+  return **result;
+}
+
+
+int factorial(int n) {
+  int result = 0;
+  for (size_t i = 1; i <= n; ++i) {
+    result += i;
+  }
+  return result;
+}
+
+double computePointChargeSelfEnergy() {
+  double energe = 0;
+  return energe;
+}

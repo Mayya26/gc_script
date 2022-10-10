@@ -1,5 +1,5 @@
 build:
-	gcc -std=c11 script.c
+	gcc -std=c11 -lm matrix/s21_matrix.c script.c
 	./a.out namdtoff
 
 clean:
