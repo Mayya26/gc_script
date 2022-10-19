@@ -25,9 +25,12 @@ void setting(data_t *A);
 void write_conf_file(data_t A);
 void write_QM(data_t A);
 void write_MM(data_t A);
-double dist_py(data_t A);
+double **dist_py(data_t A);
 int factorial(int n);
-size_t triu_indices(int len);
+int **triu_indices(int len);
+double computePointChargeSelfEnergy(data_t A);
+double *computePointChargeSelfGradient(data_t A);
+
 
 int main(int argc, char *argv[]) {
   printf("%s\n", argv[1]);
@@ -49,6 +52,7 @@ int main(int argc, char *argv[]) {
   write_MM(data);
   write_QM(data);
   dist_py(data);
+  computePointChargeSelfEnergy(data);
   remove_matrix(&data, n+m);
   return 0;
 }
@@ -94,7 +98,7 @@ void remove_matrix(data_t *A, int sum) {
   A->mm = 0;
 }
 
-
+//скорее всего удалю
 //запись из файла настроек в структуру
 void setting(data_t *A) {
   FILE *input;
@@ -184,7 +188,7 @@ double distance(data_t A, int i, int j) {
 }
 
 //тут матричные вычисления. Будет матрица mm*mm. Будет больно оптимизировать
-double dist_py(data_t A) {
+double **dist_py(data_t A) {
   double **result;
   result = (double **)malloc(A.mm * sizeof(double *));
   for (size_t i = 0; i < A.mm; i++) {
@@ -196,16 +200,16 @@ double dist_py(data_t A) {
       if (!(result[i][j] > 0)) result[i][j] = result[j][i] = distance(A, i + A.gc, A.gc + j);
     }
   }
-  return **result;
+  return result;
 }
 
 //индексы верхней треугольной матрицы
-size_t triu_indices(int len) {
-  size_t **result;
+int **triu_indices(int len) {
+  int **result;
   int f = factorial(len);
-  result = (size_t **)malloc(2 * sizeof(size_t *));
-  result[0] = (size_t *)malloc(f * sizeof(size_t ));
-  result[1] = (size_t *)malloc(f * sizeof(size_t ));
+  result = (int **)malloc(2 * sizeof(int *));
+  result[0] = (int *)malloc(f * sizeof(int ));
+  result[1] = (int *)malloc(f * sizeof(int ));
   int k = 0;
   for (size_t i = 0; i < len - 1; ++i) {
     for (size_t t = i + 1; t < len; ++t) {
@@ -214,7 +218,7 @@ size_t triu_indices(int len) {
       k++;
     }
   }
-  return **result;
+  return result;
 }
 
 
@@ -226,7 +230,40 @@ int factorial(int n) {
   return result;
 }
 
-double computePointChargeSelfEnergy() {
+
+//выдаёт бесконечность на 11.10 в 4:20 утра. В какой-то момент времени оно становится равно 0. 
+double computePointChargeSelfEnergy(data_t A) {
   double energe = 0;
+  int length = A.mm;
+  int f = factorial(A.mm - 1);
+  double **result;
+  result = dist_py(A);
+  int **index;
+  index = triu_indices(length); 
+  for (size_t i = 0; i < f; ++i) {
+    energe += A.input[index[0][i] + A.gc][3] * A.input[index[1][i] + A.gc][3] / result[index[0][i]][index[1][i]];
+  }
+  printf("%lf\n", energe);
+  for (int i = 0; i < A.mm; i++) {
+    free(result[i]);
+  }
+  free(result);
+  free(index[0]);
+  free(index[1]);
+  free(index);
   return energe;
+}
+
+
+double *computePointChargeSelfGradient(data_t A) {
+  double *pcgrad;
+  pcgrad = (double *)calloc(A.mm, sizeof(double));
+  double **r;
+  r = dist_py(A);
+  for (size_t i = 0; i < A.mm; ++i) {
+    for (size_t j = 0; j < A.mm; ++j) {
+
+    }
+  }
+  return pcgrad;
 }
