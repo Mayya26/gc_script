@@ -5,7 +5,9 @@
 // #include "matrix/s21_matrix.h"
 
 #define TRUE 1
-#define const 0.52917721067
+#define Const 0.52917721067
+#define a0 0.52917721067
+#define conversionHB  627.509469/a0
 
 //структура содержит массив координат и зарядов. В отдельном массиве хранятся символы элементов
 //а так же количество точек км/мм
@@ -53,6 +55,7 @@ int main(int argc, char *argv[]) {
   write_QM(data);
   dist_py(data);
   computePointChargeSelfEnergy(data);
+  computePointChargeSelfGradient(data);
   remove_matrix(&data, n+m);
   return 0;
 }
@@ -80,7 +83,7 @@ data_t create(int rows, int columns) {
     res.gc = rows;
     res.mm = columns;
   }
-  setting(&res);
+  // setting(&res);
   return res;
 }
 
@@ -99,31 +102,32 @@ void remove_matrix(data_t *A, int sum) {
 }
 
 //скорее всего удалю
-//запись из файла настроек в структуру
-void setting(data_t *A) {
-  FILE *input;
-  input = fopen("settings.txt", "r");
-  size_t i = 0, k = 0;
-  while(!feof(input)) {
-    A->set[i][0] = fgetc(input);
-    k = 0;
-    if (A->set[i][0] == 'e') {
-      A->set[i][1] = fgetc(input);
-      if (A->set[i][1] == 'n') {
-        A->set[i][2] = fgetc(input);
-        if (A->set[i][2] == 'd') break;
-      }
-      k = 2;
-    }
-    while (A->set[i][k] != '\n') {
-      k++;
-      A->set[i][k] = fgetc(input);
-    }
-    i++;
-  }
 
-  fclose(input);
-}
+//запись из файла настроек в структуру
+// void setting(data_t *A) {
+//   FILE *input;
+//   input = fopen("settings.txt", "r");
+//   size_t i = 0, k = 0;
+//   while(!feof(input)) {
+//     A->set[i][0] = fgetc(input);
+//     k = 0;
+//     if (A->set[i][0] == 'e') {
+//       A->set[i][1] = fgetc(input);
+//       if (A->set[i][1] == 'n') {
+//         A->set[i][2] = fgetc(input);
+//         if (A->set[i][2] == 'd') break;
+//       }
+//       k = 2;
+//     }
+//     while (A->set[i][k] != '\n') {
+//       k++;
+//       A->set[i][k] = fgetc(input);
+//     }
+//     i++;
+//   }
+
+//   fclose(input);
+// }
 
 //суммирует все заряды
 double sum_charges(data_t A) {
@@ -166,7 +170,7 @@ void write_QM(data_t A) {
 //тут запись в отдельный файл с ММ и зарядами. формат как у файла point_charges)
 void write_MM(data_t A) {
   FILE *out;
-  fopen("mm_out.txt", "w");
+  fopen("mm_out.xyz", "w");
   fprintf(out, "%d\n\n", A.mm);
   for (size_t i = A.gc; i < A.mm; ++i) {
     fprintf(out, "%.6lf %.6lf %.6lf %.6lf\n", A.input[i][3], A.input[i][0], A.input[i][1], A.input[i][2]);
@@ -183,7 +187,7 @@ double distance(data_t A, int i, int j) {
   result = pow((A.input[i][0] - A.input[j][0]), 2);
   result += pow((A.input[i][1] - A.input[j][1]), 2);
   result += pow((A.input[i][2] - A.input[j][2]), 2);
-  result = sqrt(result) / const;
+  result = sqrt(result) / Const;
   return result;
 }
 
@@ -243,7 +247,7 @@ double computePointChargeSelfEnergy(data_t A) {
   for (size_t i = 0; i < f; ++i) {
     energe += A.input[index[0][i] + A.gc][3] * A.input[index[1][i] + A.gc][3] / result[index[0][i]][index[1][i]];
   }
-  printf("%lf\n", energe);
+  // printf("%lf\n", energe);
   for (int i = 0; i < A.mm; i++) {
     free(result[i]);
   }
@@ -254,7 +258,7 @@ double computePointChargeSelfEnergy(data_t A) {
   return energe;
 }
 
-
+//pcgrad[i]+=((coords[i,:]-coords[j,:])  *pc[i,3]*pc[j,3]   /r3[i,j])*0.52917721067*0.52917721067
 double *computePointChargeSelfGradient(data_t A) {
   double *pcgrad;
   pcgrad = (double *)calloc(A.mm, sizeof(double));
@@ -262,8 +266,13 @@ double *computePointChargeSelfGradient(data_t A) {
   r = dist_py(A);
   for (size_t i = 0; i < A.mm; ++i) {
     for (size_t j = 0; j < A.mm; ++j) {
-
+      if (i != j) {
+      pcgrad[i] += ((A.input[i + A.gc][0] - A.input[j + A.gc][0]) * A.input[i + A.gc][3]*A.input[j + A.gc][3]/r[i][j])*Const * Const;
+      pcgrad[i] += ((A.input[i + A.gc][1] - A.input[j + A.gc][1]) * A.input[i + A.gc][3]*A.input[j + A.gc][3]/r[i][j])*Const * Const;
+      pcgrad[i] += ((A.input[i + A.gc][2] - A.input[j + A.gc][2]) * A.input[i + A.gc][3]*A.input[j + A.gc][3]/r[i][j])*Const * Const;
+      }
     }
+    // printf("%lf\n", pcgrad[i]);
   }
   return pcgrad;
 }
