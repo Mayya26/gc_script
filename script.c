@@ -276,6 +276,7 @@ double *computePointChargeSelfGradient(data_t A) {
       pcgrad[i] += ((A.input[i + A.gc][2] - A.input[j + A.gc][2]) * A.input[i + A.gc][3]*A.input[j + A.gc][3]/r[i][j])*Const * Const;
       }
     }
+    pcgrad[i] *= -conversionHB;
     // printf("%lf\n", pcgrad[i]);
   }
   return pcgrad;
