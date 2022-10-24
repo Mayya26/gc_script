@@ -1,5 +1,5 @@
 build:
-	gcc -std=c11 -lm script.c -o namd
+	gcc -std=c11 -lm -fopenmp script.c -o namd
 	./namd namdtoff
 
 clean:

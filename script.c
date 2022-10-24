@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include <omp.h>
 // #include "matrix/s21_matrix.h"
 
 #define TRUE 1
@@ -264,7 +265,10 @@ double *computePointChargeSelfGradient(data_t A) {
   pcgrad = (double *)calloc(A.mm, sizeof(double));
   double **r;
   r = dist_py(A);
-  for (size_t i = 0; i < A.mm; ++i) {
+  size_t i = 0;
+  #pragma omp parallel
+  #pragma omp for
+  for (i = 0; i < A.mm; ++i) {
     for (size_t j = 0; j < A.mm; ++j) {
       if (i != j) {
       pcgrad[i] += ((A.input[i + A.gc][0] - A.input[j + A.gc][0]) * A.input[i + A.gc][3]*A.input[j + A.gc][3]/r[i][j])*Const * Const;
